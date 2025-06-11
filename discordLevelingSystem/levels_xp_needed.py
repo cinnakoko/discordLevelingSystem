@@ -114,10 +114,22 @@ LEVELS_AND_XP: Final = {
     '100': 1899250
 }
 
-MAX_XP: Final = LEVELS_AND_XP['100']
-MAX_LEVEL: Final = 100
+MAX_XP: Final = None
+MAX_LEVEL: Final = None
+
+def xp_for_level(level: int) -> int:
+    """Returns the XP needed to reach a given level."""
+    if str(level) in LEVELS_AND_XP:
+        return LEVELS_AND_XP[str(level)]
+    # Example formula for levels above 100:
+    base = LEVELS_AND_XP['100']
+    # Increase XP needed by 5% per level after 100
+    extra = 1.05 ** (level - 100)
+    return int(base * extra)
+
 
 def _next_level_details(current_level: int) -> NamedTuple:
+<<<<<<< Updated upstream
     """Returns a `namedtuple`
     
     Attributes
@@ -136,9 +148,15 @@ def _next_level_details(current_level: int) -> NamedTuple:
     else:
         # Calculate XP needed for levels beyond the predefined ones
         val = LEVELS_AND_XP['100'] + (temp - 100) * 50000  # Example increment
+=======
+    """Returns a namedtuple with the next level and its XP needed."""
+    next_level = current_level + 1
+    val = xp_for_level(next_level)
+>>>>>>> Stashed changes
     Details = namedtuple('Details', ['level', 'xp_needed'])
-    return Details(level=int(key), xp_needed=val)
+    return Details(level=next_level, xp_needed=val)
 
+<<<<<<< Updated upstream
 def _find_level(current_total_xp: int) -> int: # type: ignore / this WILL return an `int` unless the user intentionally changed the values by altering the code 
     """Return the members current level based on their total XP
 
@@ -184,3 +202,20 @@ def get_xp_for_level(level: int) -> int:
 # print(f"XP needed for level 105: {xp_needed}")
 
 
+=======
+def _find_level(current_total_xp: int) -> int:
+    """Return the current level based on total XP (works for unlimited levels)."""
+    # First, check for levels in the static table
+    levels = [int(lvl) for lvl in LEVELS_AND_XP.keys()]
+    levels.sort()
+    for lvl in levels:
+        if current_total_xp < LEVELS_AND_XP[str(lvl)]:
+            return max(lvl - 1, 0)
+    # If XP is higher than table, use the formula
+    lvl = 100
+    while True:
+        xp_needed = xp_for_level(lvl + 1)
+        if current_total_xp < xp_needed:
+            return lvl
+        lvl += 1
+>>>>>>> Stashed changes

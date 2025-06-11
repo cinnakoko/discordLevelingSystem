@@ -1947,7 +1947,7 @@ class DiscordLevelingSystem:
                             amount += bonus.bonus_amount
                         
                         if amount > 75: # type: ignore
-                            amount = 75
+                            amount = 500
                         break
             
             bucket = self._cooldown.get_bucket(message)

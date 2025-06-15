@@ -1,5 +1,6 @@
 """
-This local discord leveling system uses the same levels and XP needed values as MEE6.
+This local discord leveling system uses the same levels and XP needed values as MEE6 for levels 0-100,
+then continues with a calculated formula for higher levels.
 All credit goes towards the MEE6 developers for providing the "LEVELS_AND_XP" documentation. 
 
 MEE6 documentation can be found here: https://github.com/Mee6/Mee6-documentation
@@ -8,7 +9,7 @@ MEE6 documentation can be found here: https://github.com/Mee6/Mee6-documentation
 from collections import namedtuple
 from typing import Final, NamedTuple
 
-__all__ = ('LEVELS_AND_XP', 'MAX_XP', 'MAX_LEVEL', '_next_level_details', '_find_level')
+__all__ = ('LEVELS_AND_XP', 'MAX_XP', 'MAX_LEVEL', '_next_level_details', '_find_level', '_calculate_xp_for_level')
 
 LEVELS_AND_XP: Final = {
     '0': 0,
@@ -114,22 +115,23 @@ LEVELS_AND_XP: Final = {
     '100': 1899250
 }
 
-MAX_XP: Final = None
-MAX_LEVEL: Final = None
+MAX_XP: Final = None  # No maximum XP
+MAX_LEVEL: Final = None  # No maximum level
 
-def xp_for_level(level: int) -> int:
-    """Returns the XP needed to reach a given level."""
-    if str(level) in LEVELS_AND_XP:
+def _calculate_xp_for_level(level: int) -> int:
+    """Calculate XP needed for levels above 100 using MEE6's formula pattern"""
+    if level <= 100:
         return LEVELS_AND_XP[str(level)]
-    # Example formula for levels above 100:
-    base = LEVELS_AND_XP['100']
-    # Increase XP needed by 5% per level after 100
-    extra = 1.05 ** (level - 100)
-    return int(base * extra)
-
+    
+    # For levels above 100, use a formula based on MEE6's pattern
+    # The pattern shows roughly 55k XP increase per level after 100
+    base_xp = LEVELS_AND_XP['100']
+    additional_levels = level - 100
+    xp_per_level = 55000  # Approximate XP increase per level after 100
+    
+    return base_xp + (additional_levels * xp_per_level)
 
 def _next_level_details(current_level: int) -> NamedTuple:
-<<<<<<< Updated upstream
     """Returns a `namedtuple`
     
     Attributes
@@ -141,81 +143,30 @@ def _next_level_details(current_level: int) -> NamedTuple:
             v0.0.2
                 Changed return type to a namedtuple instead of tuple
     """
-    temp = current_level + 1
-    key = str(temp)
-    if key in LEVELS_AND_XP:
-        val = LEVELS_AND_XP[key]
-    else:
-        # Calculate XP needed for levels beyond the predefined ones
-        val = LEVELS_AND_XP['100'] + (temp - 100) * 50000  # Example increment
-=======
-    """Returns a namedtuple with the next level and its XP needed."""
     next_level = current_level + 1
-    val = xp_for_level(next_level)
->>>>>>> Stashed changes
+    xp_needed = _calculate_xp_for_level(next_level)
+    
     Details = namedtuple('Details', ['level', 'xp_needed'])
-    return Details(level=next_level, xp_needed=val)
+    return Details(level=next_level, xp_needed=xp_needed)
 
-<<<<<<< Updated upstream
-def _find_level(current_total_xp: int) -> int: # type: ignore / this WILL return an `int` unless the user intentionally changed the values by altering the code 
+def _find_level(current_total_xp: int) -> int:
     """Return the members current level based on their total XP
 
     NOTE: Do not use this with detecting level ups in :meth:`award_xp`. Pretty much only made for :meth:`add_xp`, :meth:`remove_xp`
     
         .. added:: v0.0.2
     """
-    for level, xp_needed in LEVELS_AND_XP.items():
-        if current_total_xp < xp_needed:
-            return int(level) - 1
-    # Calculate level for XP beyond the predefined ones
-    base_xp = LEVELS_AND_XP['100']
-    if current_total_xp >= base_xp:
-        extra_levels = (current_total_xp - base_xp) // 50000
-        return 100 + extra_levels
-    return 0
-
-def get_xp_for_level(level: int) -> int:
-    """Returns the total XP needed to reach the given level.
+    # Check levels 0-100 first
+    for level in range(100, -1, -1):
+        level_str = str(level)
+        if current_total_xp >= LEVELS_AND_XP[level_str]:
+            return level
     
-    Parameters
-    ----------
-    level: :class:`int`
-        The level for which to get the XP.
-    
-    Returns
-    -------
-    :class:`int`
-        The total XP needed to reach the given level.
-    """
-    if level <= 100:
-        key = str(level)
-        if key in LEVELS_AND_XP:
-            return LEVELS_AND_XP[key]
-        else:
-            raise ValueError(f"Level {level} is not defined in LEVELS_AND_XP.")
-    else:
-        # Calculate XP needed for levels beyond the predefined ones
-        return LEVELS_AND_XP['100'] + (level - 100) * 50000  # Example increment
-
-# Example usage:
-# xp_needed = get_xp_for_level(105)
-# print(f"XP needed for level 105: {xp_needed}")
-
-
-=======
-def _find_level(current_total_xp: int) -> int:
-    """Return the current level based on total XP (works for unlimited levels)."""
-    # First, check for levels in the static table
-    levels = [int(lvl) for lvl in LEVELS_AND_XP.keys()]
-    levels.sort()
-    for lvl in levels:
-        if current_total_xp < LEVELS_AND_XP[str(lvl)]:
-            return max(lvl - 1, 0)
-    # If XP is higher than table, use the formula
-    lvl = 100
-    while True:
-        xp_needed = xp_for_level(lvl + 1)
-        if current_total_xp < xp_needed:
-            return lvl
-        lvl += 1
->>>>>>> Stashed changes
+    # For levels above 100
+    level = 100
+    if level > 100:
+        while True:
+            next_level_xp = _calculate_xp_for_level(level + 1)
+            if current_total_xp < next_level_xp:
+                return level
+            level += 1

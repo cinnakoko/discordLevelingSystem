@@ -258,7 +258,12 @@ class DiscordLevelingSystem:
             .. added:: v1.1.0
         """
         try:
-            return LEVELS_AND_XP[str(level)]
+            if (level <=100):
+                # Return the XP needed for levels 0-100
+                return LEVELS_AND_XP[str(level)]
+            else:
+                # For levels above 100, use the formula
+                return _calculate_xp_for_level(level)
         except KeyError:
             raise DiscordLevelingSystemError(f'Levels only go from 0-100, {level} is not a valid level')
     
@@ -570,16 +575,9 @@ class DiscordLevelingSystem:
             .. added:: v1.0.1
         """
         if all([isinstance(guild_id, int), isinstance(member_id, int), isinstance(level, int)]):
-            if level < 0:
-                raise DiscordLevelingSystemError('Parameter "level" must be 0 or higher')
-            
-            # Calculate total XP for the given level
-            if level <= 100:
-                total_xp = LEVELS_AND_XP[str(level)]
-            else:
-                total_xp = LEVELS_AND_XP['100'] + (level - 100) * 50000  # Example increment
-
-            await self._update_record(member=member_id, level=level, xp=0, total_xp=total_xp, guild_id=guild_id, name=str(member_name), maybe_new_record=True)
+            if not (0 <= level):
+                raise DiscordLevelingSystemError('Parameter "level" must be from 0-100')
+            await self._update_record(member=member_id, level=level, xp=0, total_xp=LEVELS_AND_XP[str(level)], guild_id=guild_id, name=str(member_name), maybe_new_record=True)
         else:
             raise DiscordLevelingSystemError('All parameters that expect an int were not of type int')
     
@@ -725,7 +723,7 @@ class DiscordLevelingSystem:
         
         Returns
         -------
-        Optional[Union[Dict[:class=`int`, List[:class:`RoleAward`]], List[:class:`RoleAward`]]]: If :param:`guild` is :class:`None`, this returns the awards :class:`dict` that was set in constructor. If :param:`guild`
+        Optional[Union[Dict[:class:`int`, List[:class:`RoleAward`]], List[:class:`RoleAward`]]]: If :param:`guild` is :class:`None`, this returns the awards :class:`dict` that was set in constructor. If :param:`guild`
         is specified, it returns a List[:class:`RoleAward`] that matches the specified guild ID. Can also return :class:`None` if awards were never set or if the awards for the specified guild was not found
         
             .. added:: v1.0.0
@@ -755,7 +753,7 @@ class DiscordLevelingSystem:
         member: :class:`discord.Member`
             The member to give XP to
         
-        amount: :class=`int`
+        amount: :class:`int`
             Amount of XP to give to the member
 
         Raises
@@ -779,7 +777,7 @@ class DiscordLevelingSystem:
                 new_total_xp = md.total_xp + amount
                 new_total_xp = new_total_xp if new_total_xp <= MAX_XP else MAX_XP
                 maybe_new_level = _find_level(new_total_xp)
-                await self._update_record(member=member, level=maybe_new_level, xp=md.xp + amount, total_xp=new_total_xp, guild_id=member.guild.id, name=str(member), maybe_new_record=True)
+                await self._update_record(member=member, level=maybe_new_level, xp=md.xp, total_xp=new_total_xp, guild_id=member.guild.id, name=str(member), maybe_new_record=True)
     
     @db_file_exists
     @leaderboard_exists
@@ -818,7 +816,7 @@ class DiscordLevelingSystem:
                 new_total_xp = md.total_xp - amount
                 new_total_xp = new_total_xp if new_total_xp >= 1 else 0
                 maybe_new_level = _find_level(new_total_xp)
-                await self._update_record(member=member, level=maybe_new_level, xp=md.xp - amount, total_xp=new_total_xp, guild_id=member.guild.id)
+                await self._update_record(member=member, level=maybe_new_level, xp=md.xp, total_xp=new_total_xp, guild_id=member.guild.id)
     
     @db_file_exists
     @leaderboard_exists
@@ -834,25 +832,22 @@ class DiscordLevelingSystem:
             The member who's level will be set
         
         level: :class:`int`
-            Level to set. Must be from 0 or higher
+            Level to set. Must be from 0-100
                 
         Raises
         ------
-        DiscordLevelingSystemError
-            If the level is less than 0
+        - `DatabaseFileNotFound`: The database file was not found
+        - `LeaderboardNotFound`: Table "leaderboard" in the database file is missing
+        - `ImproperLeaderboard`: Leaderboard table was altered. Components changed or deleted
+        - `NotConnected`: Attempted to use a method that requires a connection to a database file
+        - `DiscordLevelingSystemError`: Parameter "level" was not from 0-100
         
             .. added:: v0.0.2
         """
-        if level < 0:
-            raise DiscordLevelingSystemError('Parameter "level" must be 0 or higher')
-        
-        # Calculate total XP for the given level
-        if level <= 100:
-            total_xp = LEVELS_AND_XP[str(level)]
+        if 0 <= level:
+            await self._update_record(member=member, level=level, xp=0, total_xp=LEVELS_AND_XP[str(level)], guild_id=member.guild.id, name=str(member), maybe_new_record=True)
         else:
-            total_xp = LEVELS_AND_XP['100'] + (level - 100) * 50000  # Example increment
-
-        await self._update_record(member=member, level=level, xp=0, total_xp=total_xp, guild_id=member.guild.id)
+            raise DiscordLevelingSystemError('Parameter "level" must be from 0-100')
     
     @db_file_exists
     @leaderboard_exists
@@ -864,7 +859,7 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        rate: :class=`int`
+        rate: :class:`int`
             The amount of messages each member can send before the cooldown triggers
 
         per: :class:`float`
@@ -937,7 +932,7 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        guild: Optional[:class=`discord.Guild`]
+        guild: Optional[:class:`discord.Guild`]
             The guild for which all information that is related to that guild will be deleted. If :class:`None`, everything will be deleted
 
         intentional: :class:`bool`
@@ -1049,7 +1044,7 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        guild: Union[:class=`discord.Guild`, :class:`None`]
+        guild: Union[:class:`discord.Guild`, :class:`None`]
             The guild for which everyone will be reset. If this is set to :class:`None`, everyone in the entire database will be reset
         
         intentional: :class:`bool`
@@ -1095,7 +1090,7 @@ class DiscordLevelingSystem:
         path: :class:`str`
             Path to copy the json file to
         
-        guild: Union[:class=`discord.Guild`, :class=`None`]
+        guild: Union[:class:`discord.Guild`, :class:`None`]
             The guild for which the data should be extracted from. If :class:`None`, all guild information will be extracted from the database
         
         Raises
@@ -1164,12 +1159,12 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        guild: Optional[:class=`discord.Guild`]
+        guild: Optional[:class:`discord.Guild`]
             The guild to extract the raw database contents from. If :class:`None`, information about all guilds will be extracted
         
         Returns
         -------
-        List[Tuple[:class=`int`, :class=`int`, :class=`str`, :class=`int`, :class=`int`, :class=`int`]]: The tuples inside the list represents each row of the database:
+        List[Tuple[:class:`int`, :class:`int`, :class:`str`, :class:`int`, :class:`int`, :class:`int`]]: The tuples inside the list represents each row of the database:
         
         - Index 0 is the guild ID
         - Index 1 is their ID
@@ -1212,10 +1207,10 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        member: Union[:class=`discord.Member`, :class=`int`]
+        member: Union[:class:`discord.Member`, :class:`int`]
             The member to remove. Can be the member object or that members ID
 
-        guild: Optional[:class=`discord.Guild`]
+        guild: Optional[:class:`discord.Guild`]
             If this parameter is given, it will remove the record of the specified member only from the specified guild record. If :class:`None`, it will remove
             all records no matter the guild
         
@@ -1228,12 +1223,12 @@ class DiscordLevelingSystem:
         - `DatabaseFileNotFound`: The database file was not found
         - `LeaderboardNotFound`: Table "leaderboard" in the database file is missing
         - `ImproperLeaderboard`: Leaderboard table was altered. Components changed or deleted
-        - `DiscordLevelingSystemError`: Parameter :param=`member` was not of type :class=`discord.Member` or :class=`int`
+        - `DiscordLevelingSystemError`: Parameter :param:`member` was not of type :class:`discord.Member` or :class:`int`
         - `NotConnected`: Attempted to use a method that requires a connection to a database file
         
             .. changes::
                 v1.0.0
-                    Added :param=`guild`
+                    Added :param:`guild`
         """
         if isinstance(member, (Member, int)):
             member_id = member.id if isinstance(member, Member) else member
@@ -1266,15 +1261,15 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        member: Union[:class=`discord.Member`, :class=`int`]
+        member: Union[:class:`discord.Member`, :class:`int`]
             The member to check for. Can be the member object or that members ID
         
-        guild: Optional[:class=`discord.Guild`]
+        guild: Optional[:class:`discord.Guild`]
             The guild to check if the member is registered in
         
         Returns
         -------
-        :class=`bool`
+        :class:`bool`
 
         Raises
         ------
@@ -1282,11 +1277,11 @@ class DiscordLevelingSystem:
         - `LeaderboardNotFound`: Table "leaderboard" in the database file is missing
         - `ImproperLeaderboard`: Leaderboard table was altered. Components changed or deleted
         - `NotConnected`: Attempted to use a method that requires a connection to a database file
-        - `DiscordLevelingSystemError`: Parameter :param=`member` was not of type :class=`discord.Member` or :class=`int`
+        - `DiscordLevelingSystemError`: Parameter :param:`member` was not of type :class:`discord.Member` or :class:`int`
         
             .. changes::
                 v1.0.0
-                    Added :param=`guild`
+                    Added :param:`guild`
         """
         if not isinstance(member, (Member, int)): raise DiscordLevelingSystemError(f'Parameter "member" expected discord.Member or int, got {member.__class__.__name__}')
         arg = member.id if isinstance(member, Member) else member
@@ -1304,16 +1299,16 @@ class DiscordLevelingSystem:
     async def get_record_count(self, guild: Optional[Guild]=None) -> int:
         """|coro|
         
-        Get the amount of members that are registered in the database. If :param=`guild` is set to :class=`None`, all members in the database will be counted
+        Get the amount of members that are registered in the database. If :param:`guild` is set to :class:`None`, all members in the database will be counted
 
         Parameters
         ----------
-        guild: Optional[:class=`discord.Guild`]
+        guild: Optional[:class:`discord.Guild`]
             The guild for which to count the amount of records
 
         Returns
         -------
-        :class=`int`
+        :class:`int`
 
         Raises
         ------
@@ -1324,7 +1319,7 @@ class DiscordLevelingSystem:
         
             .. changes::
                 v0.0.2
-                    Added :param=`guild`
+                    Added :param:`guild`
         """
         if guild:   await self._cursor.execute('SELECT COUNT(*) from leaderboard WHERE guild_id = ?', (guild.id,)) # type: ignore
         else:       await self._cursor.execute('SELECT COUNT(*) from leaderboard') # type: ignore
@@ -1343,12 +1338,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the amount of XP needed for a level up
         
         Returns
         -------
-        Optional[:class=`int`]: Returns 0 if the member is currently at max level. Can return :class=`None` if the member is not in the database.
+        Optional[:class:`int`]: Returns 0 if the member is currently at max level. Can return :class:`None` if the member is not in the database.
 
         Raises
         ------
@@ -1360,8 +1355,8 @@ class DiscordLevelingSystem:
         data = await self.get_data_for(member)
         if not data:
             return None
-        if data.level == 100:
-            return 0
+        if data.level == MAX_LEVEL:
+            return 0    
         else:
             details = _next_level_details(data.level)
             return details.xp_needed - data.xp # type: ignore / attr exists
@@ -1376,12 +1371,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the next level for
         
         Returns
         -------
-        Optional[:class=`int`]: If the member is currently max level (100), it will return 100. This can also return :class=`None` if the member is not in the database
+        Optional[:class:`int`]: If the member is currently max level (100), it will return 100. This can also return :class:`None` if the member is not in the database
 
         Raises
         ------
@@ -1409,12 +1404,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the XP for
         
         Returns
         -------
-        Optional[:class=`int`]: Can be :class=`None` if the member isn't in the database
+        Optional[:class:`int`]: Can be :class:`None` if the member isn't in the database
 
         Raises
         ------
@@ -1437,12 +1432,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the total XP for
         
         Returns
         -------
-        Optional[:class=`int`]: Can be :class=`None` if the member isn't in the database
+        Optional[:class:`int`]: Can be :class:`None` if the member isn't in the database
 
         Raises
         ------
@@ -1465,12 +1460,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the level for
         
         Returns
         -------
-        Optional[:class=`int`]: Can be :class=`None` if the member isn't in the database
+        Optional[:class:`int`]: Can be :class:`None` if the member isn't in the database
 
         Raises
         ------
@@ -1489,16 +1484,16 @@ class DiscordLevelingSystem:
     async def get_data_for(self, member: Member) -> Optional[MemberData]:
         """|coro|
         
-        Get the :class=`MemberData` object that represents the specified member
+        Get the :class:`MemberData` object that represents the specified member
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             The member to get the data for
         
         Returns
         -------
-        Optional[:class=`MemberData`]: Can return :class=`None` if the member was not found in the database
+        Optional[:class:`MemberData`]: Can return :class:`None` if the member was not found in the database
 
         Raises
         ------
@@ -1526,22 +1521,22 @@ class DiscordLevelingSystem:
     async def each_member_data(self, guild: Guild, sort_by: Optional[Literal['name', 'level', 'xp', 'rank']]=None, limit: Optional[int]=None) -> List[MemberData]:
         """|coro|
         
-        Return each member in the database as a :class=`MemberData` object for easy access to their XP, level, etc.
+        Return each member in the database as a :class:`MemberData` object for easy access to their XP, level, etc.
 
         Parameters
         ----------
-        guild: :class=`discord.Guild`
+        guild: :class:`discord.Guild`
             A guild object
         
-        sort_by: Optional[:class=`str`]
-            Return each member data sorted by: "name", "level", "xp", "rank", or :class=`None`. If :class=`None`, it will return in the order they were added to the database
+        sort_by: Optional[:class:`str`]
+            Return each member data sorted by: "name", "level", "xp", "rank", or :class:`None`. If :class:`None`, it will return in the order they were added to the database
         
-        limit: Optional[:class=`int`]
+        limit: Optional[:class:`int`]
             Restrict the amount of records returned to the specified amount
         
         Returns
         -------
-        List[:class=`MemberData`]
+        List[:class:`MemberData`]
 
         Raises
         ------
@@ -1549,19 +1544,19 @@ class DiscordLevelingSystem:
         - `LeaderboardNotFound`: Table "leaderboard" in the database file is missing
         - `ImproperLeaderboard`: Leaderboard table was altered. Components changed or deleted
         - `NotConnected`: Attempted to use a method that requires a connection to a database file
-        - `DiscordLevelingSystemError`: The value of :param=`sort_by` was not recognized or :param=`guild` was not of type :class=`discord.Guild`
+        - `DiscordLevelingSystemError`: The value of :param:`sort_by` was not recognized or :param:`guild` was not of type :class:`discord.Guild`
 
             .. changes::
                 v1.1.0
-                    Added :param=`limit`
+                    Added :param:`limit`
         """
         if not isinstance(guild, Guild):
             raise DiscordLevelingSystemError(f'Parameter "guild" expected discord.Guild got {guild.__class__.__name__}')
         else:
-            # NOTE: there's no need to worry about this method returning :class=`None` because as soon as someone sends a message they are added to the database
+            # NOTE: there's no need to worry about this method returning :class:`None` because as soon as someone sends a message they are added to the database
 
             async def result_to_memberdata(query_result) -> List[MemberData]:
-                """Convert the query result into a :class=`list` of :class=`MemberData` objects"""
+                """Convert the query result into a :class:`list` of :class:`MemberData` objects"""
                 data = []
                 for m_id, m_name, m_level, m_xp, m_total_xp in query_result:
                     rank = None
@@ -1591,7 +1586,7 @@ class DiscordLevelingSystem:
 
                     elif sort_by == 'rank':
                         def convert(md: MemberData) -> MemberData:
-                            """Set the rank to an :class=`int` value of 0 because it is not possible to sort a list of :class=`int` that has :class=`None` values"""
+                            """Set the rank to an :class:`int` value of 0 because it is not possible to sort a list of :class:`int` that has :class:`None` values"""
                             if md.rank is None:
                                 md.rank = 0
                             return md
@@ -1608,7 +1603,7 @@ class DiscordLevelingSystem:
     
                         def zero_to_none(md: MemberData) -> MemberData:
                             """If they're not in the guild anymore, I don't want their rank to be presented as zero because that implies they are still in the guild, but just has
-                            a rank of zero. Setting it back to :class=`None` makes it more readable and draws further implication that they're no longer in the guild
+                            a rank of zero. Setting it back to :class:`None` makes it more readable and draws further implication that they're no longer in the guild
                             """
                             if md.rank == 0:
                                 md.rank = None
@@ -1629,12 +1624,12 @@ class DiscordLevelingSystem:
         
         Parameters
         ----------
-        member: :class=`discord.Member`
+        member: :class:`discord.Member`
             Member to get the rank for
         
         Returns
         -------
-        Optional[:class=`int`]: Can be :class=`None` if the member isn't ranked yet
+        Optional[:class:`int`]: Can be :class:`None` if the member isn't ranked yet
 
         Raises
         ------
@@ -1668,22 +1663,22 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        sql: :class=`str`
+        sql: :class:`str`
             SQL string used to query the database
         
-        parameters: Optional[Tuple[Union[:class=`str`, :class=`int`]]]
+        parameters: Optional[Tuple[Union[:class:`str`, :class:`int`]]]
             The parameters used for the database query
         
-        fetch: Union[:class=`str`, :class=`int`]
+        fetch: Union[:class:`str`, :class:`int`]
             The amount of rows you would like back from the query. Options: 'ALL', 'ONE', or an integer value that is greater than zero
         
         Returns
         -------
-        Union[List[tuple], tuple]:
+        Union[List[:class:`tuple`], :class:`tuple`]:
 
-        - Using `fetch='ALL'` returns List[tuple]
-        - Using `fetch='ONE'` returns tuple
-        - Using `fetch=4` returns List[tuple] with only four values
+        - Using `fetch='ALL'` returns List[:class:`tuple`]
+        - Using `fetch='ONE'` returns :class:`tuple`
+        - Using `fetch=4` returns List[:class:`tuple`] with only four values
         
         Can also return an empty list if the query was valid but got nothing from it
         
@@ -1716,11 +1711,11 @@ class DiscordLevelingSystem:
             raise DiscordLevelingSystemError(f'Argument "fetch" needs to be str or int, got {fetch.__class__.__name__}')
     
     def _get_last_award(self, current_award: RoleAward, guild_awards: List[RoleAward]) -> RoleAward:
-        """Get the last :class=`RoleAward` that was given to the member. Returns the current :class=`RoleAward` if the last award is the current one
+        """Get the last :class:`RoleAward` that was given to the member. Returns the current :class:`RoleAward` if the last award is the current one
         
             .. changes::
                 v0.0.2
-                    Added :param=`guild_awards`
+                    Added :param:`guild_awards`
         """
         current_award_idx = guild_awards.index(current_award)
         last_award_idx = guild_awards.index(current_award) - 1
@@ -1746,15 +1741,15 @@ class DiscordLevelingSystem:
                 await self._connection.commit() # type: ignore
     
     async def _handle_level_up(self, message: Message, md: MemberData, leveled_up: bool) -> None:
-        """|coro| Gives/removes roles from members that leveled up and met the :class=`RoleAward` requirement. This also sends the level up message
+        """|coro| Gives/removes roles from members that leveled up and met the :class:`RoleAward` requirement. This also sends the level up message
         
             .. changes::
                 v0.0.2
                     Added handling for level up messages that are embeds
                     Added handling for random selections of level up messages
-                    Added :param=`md`
-                    Added :param=`leveled_up`
-                    Added if check for :param=`leveled_up`
+                    Added :param:`md`
+                    Added :param:`leveled_up`
+                    Added if check for :param:`leveled_up`
                     Added :func:`send_announcement`
                     Removed raising of exception (AwardedRoleNotFound) to support multi-guild leveling
                     Removed raising of exception (LevelUpChannelNotFound) to support multi-guild level up channel IDs
@@ -1762,11 +1757,11 @@ class DiscordLevelingSystem:
                     Added handling for event `on_dls_level_up`
         """
         if leveled_up:
-            member: Member = message.author # type: ignore / `.author` will be :class=`discord.Member` (lib doesn't work in DMs)
+            member: Member = message.author # type: ignore / `.author` will be :class:`discord.Member` (lib doesn't work in DMs)
             
             def role_exists(award: RoleAward) -> Optional[Role]:
-                """Check to ensure the role associated with the :class=`RoleAward` still exists in the guild. If it does, it returns that discord role object for use"""
-                return message.guild.get_role(award.role_id) # type: ignore / `.guild` will always be :class=`discord.Guild`
+                """Check to ensure the role associated with the :class:`RoleAward` still exists in the guild. If it does, it returns that discord role object for use"""
+                return message.guild.get_role(award.role_id) # type: ignore / `.guild` will always be :class:`discord.Guild`
             
             async def send_announcement(announcement_message, channel, send_kwargs):
                 """|coro| Send the level up message
@@ -1791,7 +1786,7 @@ class DiscordLevelingSystem:
                 if lua.level_up_channel_ids:
                     channel_found = False
                     for channel_id in lua.level_up_channel_ids:
-                        channel = message.guild.get_channel(channel_id) # type: ignore / `.guild` will always be :class=`discord.Guild`
+                        channel = message.guild.get_channel(channel_id) # type: ignore / `.guild` will always be :class:`discord.Guild`
                         if channel:
                             channel_found = True
                             break
@@ -1807,7 +1802,7 @@ class DiscordLevelingSystem:
             if self._awards:
                 try:
                     # get the list of RoleAwards that match the guild ID
-                    guild_role_awards: List[RoleAward] = self._awards[message.guild.id] # type: ignore / `.guild` will always be :class=`discord.Guild`
+                    guild_role_awards: List[RoleAward] = self._awards[message.guild.id] # type: ignore / `.guild` will always be :class:`discord.Guild`
                 except KeyError:
                     return
                 else:
@@ -1898,21 +1893,21 @@ class DiscordLevelingSystem:
 
         Parameters
         ----------
-        amount: Union[:class=`int`, Sequence[:class=`int`]]
-            The amount of XP to award to the member per message. Must be from 1-25. Can be a sequence with a minimum and maximum length of two. If :param=`amount` is a sequence of two integers, it will randomly
+        amount: Union[:class:`int`, Sequence[:class:`int`]]
+            The amount of XP to award to the member per message. Must be from 1-25. Can be a sequence with a minimum and maximum length of two. If :param:`amount` is a sequence of two integers, it will randomly
             pick a number in between those numbers including the numbers provided
         
-        message: :class=`discord.Message`
+        message: :class:`discord.Message`
             A message object
         
-        refresh_name: :class=`bool`
+        refresh_name: :class:`bool`
             Everytime the member sends a message, check if their name still matches the name in the database. If it doesn't match, update the database to match their current name. It is
             suggested to leave this as `True` so the database can always have the most up-to-date record
 
         Kwargs
         ------
-        bonus: :class=`DiscordLevelingSystem.Bonus`
-            Set the bonus values. Read the :class=`DiscordLevelingSystem.Bonus` doc string for more details (defaults to :class=`None`)
+        bonus: :class:`DiscordLevelingSystem.Bonus`
+            Set the bonus values. Read the :class:`DiscordLevelingSystem.Bonus` doc string for more details (defaults to :class:`None`)
         
         Raises
         ------
@@ -1924,9 +1919,9 @@ class DiscordLevelingSystem:
             .. changes::
                 v0.0.2
                     Added handling for bonus xp (kwarg "bonus")
-                    Added initialization for :attr=`_message_author`
+                    Added initialization for :attr:`_message_author`
                     Replaced query with class attr
-                    Moved the detection of a level up from :meth=`_handle_level_up` to here
+                    Moved the detection of a level up from :meth:`_handle_level_up` to here
         """
         if any([message.guild is None, self._determine_no_xp(message), message.author.bot, message.type != MessageType.default, self.active is False]):
             return
@@ -1940,7 +1935,7 @@ class DiscordLevelingSystem:
             if bonus:
                 for role_id in bonus.role_ids:
                     role: Optional[Role] = message.guild.get_role(role_id) # type: ignore
-                    if role in message.author.roles: # type: ignore / This lib cannot operate with :class=`discord.User` (DM's). It will always be :class=`discord.Member`
+                    if role in message.author.roles: # type: ignore / This lib cannot operate with :class:`discord.User` (DM's). It will always be :class:`discord.Member`
                         if bonus.multiply:
                             amount *= bonus.bonus_amount
                         else:

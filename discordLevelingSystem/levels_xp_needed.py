@@ -119,6 +119,9 @@ LEVELS_AND_XP: Final = {
 # For this example, we will remove MAX_XP and MAX_LEVEL from the global scope as they are no longer fixed values.
 __all__ = ('LEVELS_AND_XP', '_next_level_details', '_find_level')
 
+MAX_XP: Final = 99999999999999999999999
+MAX_LEVEL: Final = 10000
+
 
 def _get_xp_for_level(level: int) -> int:
     """
